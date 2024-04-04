@@ -6,6 +6,8 @@
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "windowscodecs")
 
+#  define DLL_EXPORT extern "C" __declspec(dllexport)
+
 ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT height)
 {
     // Create a WIC bitmap from the ARGB byte array
@@ -35,7 +37,7 @@ ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT heig
 }
 
 // Initialize Direct2D
-void Direct2D_Init(HWND _hwnd)
+DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
 {
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
     
@@ -55,11 +57,11 @@ void Direct2D_Init(HWND _hwnd)
     // Create a render target
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
-    pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(800, 600)), &pRenderTarget);
+    pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
 // Draw something
-void Direct2D_Render(BYTE* argbBytes, UINT width, UINT height)
+DLL_EXPORT void Direct2D_Render(BYTE* argbBytes, UINT width, UINT height)
 {
     // Assume you have an ARGB byte array named 'argbBytes'
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
@@ -74,7 +76,7 @@ void Direct2D_Render(BYTE* argbBytes, UINT width, UINT height)
     }
 }
 
-void Direct2D_Dispose()
+DLL_EXPORT void Direct2D_Dispose()
 {
     // Cleanup
     pRenderTarget->Release();
