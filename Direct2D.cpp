@@ -60,20 +60,28 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
+DLL_EXPORT void Direct2D_Begin()
+{
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+}
+
 // Draw something
-DLL_EXPORT void Direct2D_Render(BYTE* argbBytes, UINT width, UINT height)
+DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT width, UINT height)
 {
     // Assume you have an ARGB byte array named 'argbBytes'
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (pBitmap) 
     {
         // Draw the bitmap using pRenderTarget
-        pRenderTarget->BeginDraw();
-        pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::White));
         pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(0, 0, width, height));
-        pRenderTarget->EndDraw();
         pBitmap->Release();
     }
+}
+
+DLL_EXPORT void Direct2D_End()
+{
+    pRenderTarget->EndDraw();
 }
 
 DLL_EXPORT void Direct2D_Dispose()
