@@ -56,7 +56,7 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
 
     // Create a render target
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
-        D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
+        D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_STRAIGHT));
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
@@ -67,14 +67,14 @@ DLL_EXPORT void Direct2D_Begin()
 }
 
 // Draw something
-DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT width, UINT height)
+DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
 {
     // Assume you have an ARGB byte array named 'argbBytes'
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (pBitmap) 
     {
         // Draw the bitmap using pRenderTarget
-        pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(0, 0, width, height));
+        pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(x, y, width, height));
         pBitmap->Release();
     }
 }
