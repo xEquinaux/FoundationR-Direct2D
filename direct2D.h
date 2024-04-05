@@ -14,5 +14,6 @@ ID3D10Device* d3dDevice = nullptr;
 IDXGIDevice* dxgiDevice = nullptr;
 ID3D10Texture2D* tex = nullptr;
 IDXGISurface* dxgiSurface = nullptr;
+ID2D1BitmapRenderTarget* bmpRT = NULL;
 UINT _WIDTH = 0;
 UINT _HEIGHT = 0;

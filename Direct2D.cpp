@@ -116,7 +116,7 @@ DLL_EXPORT void Direct3D_Init(BYTE* argbBytes, UINT width, UINT height)
     {
         return;
     }
-    
+
     D2D1_CREATION_PROPERTIES creationProperties = {};
     D2D1CreateDeviceContext(dxgiSurface, creationProperties, &m_d2dContext);
     pBackBuffer = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
@@ -147,6 +147,9 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
+
+    // Create bitmap render target
+    pRenderTarget->CreateCompatibleRenderTarget(D2D1::SizeF(_WIDTH, _HEIGHT), &bmpRT);
 }
 
 DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
@@ -154,17 +157,30 @@ DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT 
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (pBitmap)
     {
+        ID2D1BitmapRenderTarget* bmpRT = nullptr;
         ID2D1Effect* compositeEffect = nullptr;
-        
+
         HRESULT hr = m_d2dContext->CreateEffect(CLSID_D2D1Composite, &compositeEffect);
         if (SUCCEEDED(hr))
         {
-            compositeEffect->SetInput(0, pBackBuffer);
-            compositeEffect->SetInput(1, pBitmap);
-            compositeEffect->GetOutput(&pBackBuffer);
+            
+            // Set inputs in the correct order
+            compositeEffect->SetInput(0, pBitmap);
+            compositeEffect->SetInput(1, pBackBuffer);
+
+            // Get the output
+            ID2D1Image* pNewBackBuffer = nullptr;
+            compositeEffect->GetOutput(&pNewBackBuffer);
+
+            // Release the old back buffer and update it
+            if (pBackBuffer)
+                pBackBuffer->Release();
+            pBackBuffer = pNewBackBuffer;
         }
         else
         {
+            // Handle error (e.g., log or display a message)
+            // Don't forget to release pBitmap here as well
             pBitmap->Release();
         }
     }
@@ -180,8 +196,8 @@ DLL_EXPORT void Direct3D_Render()
 
 DLL_EXPORT void Direct2D_Begin()
 {
-    pRenderTarget->BeginDraw();
-    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    bmpRT->BeginDraw();
+    bmpRT->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
 }
 
 // Draw something
@@ -189,20 +205,36 @@ DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT 
 {
     // Assume you have an ARGB byte array named 'argbBytes'
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
-    if (pBitmap) 
+    if (pBitmap)
     {
-        pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(x, y, width, height));
+        bmpRT->DrawBitmap(pBitmap, D2D1::RectF(x, y, width, height));
+        pBitmap->Release();
     }
+}
+
+DLL_EXPORT void Direct2D_Render()
+{
+    ID2D1Bitmap* bmp = NULL;
+    HRESULT hr = bmpRT->GetBitmap(&bmp);
+    if (SUCCEEDED(hr))
+    {
+        pRenderTarget->BeginDraw();
+        pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+        pRenderTarget->DrawBitmap(bmp);
+        pRenderTarget->EndDraw();
+    }
+    bmp->Release();
 }
 
 DLL_EXPORT void Direct2D_End()
 {
-    pRenderTarget->EndDraw();
+    bmpRT->EndDraw();
 }
 
 DLL_EXPORT void Dispose()
 {
     // Cleanup
+    bmpRT->Release();
     d3dDevice->Release();
     dxgiDevice->Release();
     tex->Release();
