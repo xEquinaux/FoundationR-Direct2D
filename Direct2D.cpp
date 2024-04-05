@@ -147,9 +147,10 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
+    pRenderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
     // Create bitmap render target
-    pRenderTarget->CreateCompatibleRenderTarget(D2D1::SizeF(_WIDTH, _HEIGHT), &bmpRT);
+    //pRenderTarget->CreateCompatibleRenderTarget(D2D1::SizeF(_WIDTH, _HEIGHT), &bmpRT);
 }
 
 DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
@@ -194,41 +195,30 @@ DLL_EXPORT void Direct3D_Render()
     pRenderTarget->EndDraw();
 }
 
-DLL_EXPORT void Direct2D_Begin()
+DLL_EXPORT void Direct2D_Begin(UINT viewX, UINT viewY)
 {
-    bmpRT->BeginDraw();
-    bmpRT->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    D2D1_RECT_F clipRect = D2D1::RectF(0, 0, _WIDTH, _HEIGHT);
+    pRenderTarget->PushAxisAlignedClip(clipRect, D2D1_ANTIALIAS_MODE_ALIASED);
+    D2D1_MATRIX_3X2_F transformMatrix = D2D1::Matrix3x2F::Translation(viewX, viewY);
+    pRenderTarget->SetTransform(transformMatrix);
 }
 
-// Draw something
 DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
 {
-    // Assume you have an ARGB byte array named 'argbBytes'
-    ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
-    if (pBitmap)
+    ID2D1Bitmap* bmp = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
+    if (bmp)
     {
-        bmpRT->DrawBitmap(pBitmap, D2D1::RectF(x, y, width, height));
-        pBitmap->Release();
-    }
-}
-
-DLL_EXPORT void Direct2D_Render()
-{
-    ID2D1Bitmap* bmp = NULL;
-    HRESULT hr = bmpRT->GetBitmap(&bmp);
-    if (SUCCEEDED(hr))
-    {
-        pRenderTarget->BeginDraw();
-        pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
-        pRenderTarget->DrawBitmap(bmp);
-        pRenderTarget->EndDraw();
+        pRenderTarget->DrawBitmap(bmp, D2D1::RectF(x, y, width, height), 1.0, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
     }
     bmp->Release();
 }
 
 DLL_EXPORT void Direct2D_End()
 {
-    bmpRT->EndDraw();
+    pRenderTarget->PopAxisAlignedClip();
+    pRenderTarget->EndDraw();
 }
 
 DLL_EXPORT void Dispose()
