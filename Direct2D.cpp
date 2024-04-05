@@ -123,20 +123,14 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     // Create a window
     hWnd = _hwnd;//CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
         //CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
-
-    // Create a render target
+    
+        // Create a render target
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
-DLL_EXPORT void Direct3D_Begin()
-{
-    m_d2dContext->BeginDraw();
-    m_d2dContext->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
-}
-
-DLL_EXPORT void Direct3D_Composite(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
+DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
 {
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (pBitmap)
@@ -146,19 +140,13 @@ DLL_EXPORT void Direct3D_Composite(BYTE* argbBytes, UINT x, UINT y, UINT width, 
         m_d2dContext->CreateEffect(CLSID_D2D1Composite, &compositeEffect);
         compositeEffect->SetInput(0, pBackBuffer);
         compositeEffect->SetInput(1, pBitmap);
-        
-        compositeEffect->Release();
+        compositeEffect->GetOutput(&pBackBuffer);
     }
 }
 
 DLL_EXPORT void Direct3D_Render()
 {
-    m_d2dContext->DrawBitmap(pBackBuffer);
-}
-
-DLL_EXPORT void Direct3D_End()
-{
-    m_d2dContext->EndDraw();
+    pRenderTarget->DrawBitmap(pBackBuffer);
 }
 
 DLL_EXPORT void Direct2D_Begin()
@@ -168,7 +156,7 @@ DLL_EXPORT void Direct2D_Begin()
 }
 
 // Draw something
-DLL_EXPORT void Direct2D_Composite(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
+DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
 {
     // Assume you have an ARGB byte array named 'argbBytes'
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
@@ -183,7 +171,7 @@ DLL_EXPORT void Direct2D_End()
     pRenderTarget->EndDraw();
 }
 
-DLL_EXPORT void Direct2D_Dispose()
+DLL_EXPORT void Dispose()
 {
     // Cleanup
     pRenderTarget->Release();
