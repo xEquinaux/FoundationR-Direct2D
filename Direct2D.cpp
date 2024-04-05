@@ -7,6 +7,8 @@
 #include "direct2D.h"
 #include "pch.h"
 #pragma comment(lib, "d2d1")
+#pragma comment(lib, "d3d10")
+#pragma comment(lib, "dxguid")
 #pragma comment(lib, "windowscodecs")
 
 #  define DLL_EXPORT extern "C" __declspec(dllexport)
@@ -39,40 +41,31 @@ ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT heig
     return pD2DBitmap;
 }
 
-DLL_EXPORT void Direct3D_Init()
+ID2D1Bitmap* ConvertImageToBitmap(ID2D1Image* pImg, D2D1_SIZE_U size)
 {
-    HRESULT hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
-    if (FAILED(hr))
-    {
-        return;
-    }
+    ID2D1Image* oldTarget = NULL;
+    ID2D1Bitmap1* targetBitmap = NULL;
 
-    ID3D10Device* d3dDevice = nullptr;
-    HRESULT result = D3D10CreateDevice(nullptr, D3D10_DRIVER_TYPE_HARDWARE, nullptr, 0, D3D10_SDK_VERSION, &d3dDevice);
-    if (FAILED(result))
-    {
-        return;
-    }
-    IDXGIDevice* dxgiDevice = nullptr;
-    d3dDevice->QueryInterface(IID_PPV_ARGS(&dxgiDevice));
-    
-    ID3D10Texture2D* tex = GenerateTexture(d3dDevice);
-    IDXGISurface* dxgiSurface = nullptr;
-    HRESULT hr2 = tex->QueryInterface(IID_IDXGISurface, reinterpret_cast<void**>(&dxgiSurface));
-    if (FAILED(hr2))
-    {
-        return;
-    }
+    //Create a Bitmap with "D2D1_BITMAP_OPTIONS_TARGET"
+    D2D1_BITMAP_PROPERTIES1 bitmapProperties =
+        D2D1::BitmapProperties1(
+            D2D1_BITMAP_OPTIONS_TARGET,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+        );
+    m_d2dContext->CreateBitmap(size, 0, 0, bitmapProperties, &targetBitmap);
 
-    D2D1_CREATION_PROPERTIES creationProperties = {};
-    m_d2dContext = nullptr;
-    D2D1CreateDeviceContext(dxgiSurface, creationProperties, &m_d2dContext);
+    //Save current Target, replace by ID2D1Bitmap
+    m_d2dContext->GetTarget(&oldTarget);
+    m_d2dContext->SetTarget(targetBitmap);
+    //Draw Image on Target (if currently not drawing also call Begin/EndDraw)
+    m_d2dContext->DrawImage(pImg);
 
-    tex->Release();
-    dxgiSurface->Release();
-    dxgiDevice->Release();
-    d3dDevice->Release();
-    CoUninitialize();
+    //Set previous Target
+    m_d2dContext->SetTarget(oldTarget);
+
+    oldTarget->Release();
+
+    return targetBitmap;
 }
 
 ID3D10Texture2D* GenerateTexture(ID3D10Device* device)
@@ -102,12 +95,38 @@ ID3D10Texture2D* GenerateTexture(ID3D10Device* device)
     return texture2D;
 }
 
+DLL_EXPORT void Direct3D_Init(BYTE* argbBytes, UINT width, UINT height)
+{
+    HRESULT hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
+    if (FAILED(hr))
+    {
+        return;
+    }
+
+    HRESULT result = D3D10CreateDevice(nullptr, D3D10_DRIVER_TYPE_HARDWARE, nullptr, 0, D3D10_SDK_VERSION, &d3dDevice);
+    if (FAILED(result))
+    {
+        return;
+    }
+    d3dDevice->QueryInterface(IID_PPV_ARGS(&dxgiDevice));
+    
+    ID3D10Texture2D* tex = GenerateTexture(d3dDevice);
+    HRESULT hr2 = tex->QueryInterface(IID_IDXGISurface, reinterpret_cast<void**>(&dxgiSurface));
+    if (FAILED(hr2))
+    {
+        return;
+    }
+    
+    D2D1_CREATION_PROPERTIES creationProperties = {};
+    D2D1CreateDeviceContext(dxgiSurface, creationProperties, &m_d2dContext);
+    pBackBuffer = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
+}
+
 // Initialize Direct2D
 DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
 {
     _WIDTH = width;
     _HEIGHT = height;
-    pBackBuffer = CreateD2DBitmapFromARGBArray(nullptr, width, height);
 
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
     
@@ -137,16 +156,26 @@ DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT 
     {
         ID2D1Effect* compositeEffect = nullptr;
         
-        m_d2dContext->CreateEffect(CLSID_D2D1Composite, &compositeEffect);
-        compositeEffect->SetInput(0, pBackBuffer);
-        compositeEffect->SetInput(1, pBitmap);
-        compositeEffect->GetOutput(&pBackBuffer);
+        HRESULT hr = m_d2dContext->CreateEffect(CLSID_D2D1Composite, &compositeEffect);
+        if (SUCCEEDED(hr))
+        {
+            compositeEffect->SetInput(0, pBackBuffer);
+            compositeEffect->SetInput(1, pBitmap);
+            compositeEffect->GetOutput(&pBackBuffer);
+        }
+        else
+        {
+            pBitmap->Release();
+        }
     }
 }
 
 DLL_EXPORT void Direct3D_Render()
 {
-    pRenderTarget->DrawBitmap(pBackBuffer);
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    pRenderTarget->DrawBitmap(ConvertImageToBitmap(pBackBuffer, D2D1::SizeU(_WIDTH, _HEIGHT)));
+    pRenderTarget->EndDraw();
 }
 
 DLL_EXPORT void Direct2D_Begin()
@@ -174,9 +203,15 @@ DLL_EXPORT void Direct2D_End()
 DLL_EXPORT void Dispose()
 {
     // Cleanup
+    d3dDevice->Release();
+    dxgiDevice->Release();
+    tex->Release();
+    dxgiSurface->Release();
+    m_d2dContext->Release();
     pRenderTarget->Release();
     pD2DFactory->Release();
     g_pWICFactory->Release();
     pBackBuffer->Release();
+    CoUninitialize();
     DestroyWindow(hWnd);
 }
