@@ -11,7 +11,17 @@
 #pragma comment(lib, "dxguid")
 #pragma comment(lib, "windowscodecs")
 
+// Windows Header Files:
+#include <windows.h>
+
+// Direct2D Header Files:
+#include <d2d1.h>
+#include <d2d1helper.h>
+#include <dwrite.h>
+#include <wincodec.h>
+
 #  define DLL_EXPORT extern "C" __declspec(dllexport)
+
 
 ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT height)
 {
@@ -140,17 +150,20 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     }
     
     // Create a window
-    hWnd = _hwnd;//CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
-        //CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
-    
-        // Create a render target
-    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
-        D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
-    pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
-    pRenderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
+    if (_hwnd == NULL)
+    {
+        hWnd = CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
+    }
+    else hWnd = _hwnd;
 
-    // Create bitmap render target
-    //pRenderTarget->CreateCompatibleRenderTarget(D2D1::SizeF(_WIDTH, _HEIGHT), &bmpRT);
+    // Create a render target
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+    pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
+    
+//  Create bitmap render target
+//  pRenderTarget->CreateCompatibleRenderTarget(D2D1::SizeF(_WIDTH, _HEIGHT), &bmpRT);
 }
 
 DLL_EXPORT void Direct3D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
@@ -199,13 +212,21 @@ DLL_EXPORT void Direct2D_Begin(UINT viewX, UINT viewY)
 {
     pRenderTarget->BeginDraw();
     pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
-    D2D1_RECT_F clipRect = D2D1::RectF(0, 0, _WIDTH, _HEIGHT);
-    pRenderTarget->PushAxisAlignedClip(clipRect, D2D1_ANTIALIAS_MODE_ALIASED);
     D2D1_MATRIX_3X2_F transformMatrix = D2D1::Matrix3x2F::Translation(viewX, viewY);
     pRenderTarget->SetTransform(transformMatrix);
 }
 
-DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
+//DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
+//{
+//    ID2D1Bitmap* bmp = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
+//    if (bmp)
+//    {
+//        bmpRT->DrawBitmap(bmp, D2D1::RectF(x, y, width, height), 1.0, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
+//    }
+//    bmp->Release();
+//}
+
+DLL_EXPORT void Direct2D_Draw1(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT height)
 {
     ID2D1Bitmap* bmp = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (bmp)
@@ -215,16 +236,37 @@ DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT 
     bmp->Release();
 }
 
-DLL_EXPORT void Direct2D_End()
+DLL_EXPORT void Direct2D_Render(BYTE* argbBytes, UINT width, UINT height)
 {
-    pRenderTarget->PopAxisAlignedClip();
+    pRenderTarget->BeginDraw();
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    pRenderTarget->DrawBitmap(ConvertImageToBitmap(pBackBuffer, D2D1::SizeU(_WIDTH, _HEIGHT)));
+    pRenderTarget->EndDraw();
+}
+
+DLL_EXPORT void Direct2D_End(BYTE type)
+{
+    switch (type)
+    {
+        case 0:
+            break; 
+        case 1:
+            ID2D1Bitmap* result = nullptr;
+            bmpRT->GetBitmap(&result);
+            if (result)
+            {
+                pRenderTarget->DrawBitmap(result);
+                result->Release();
+            }
+            break;
+    }
     pRenderTarget->EndDraw();
 }
 
 DLL_EXPORT void Dispose()
 {
     // Cleanup
-    bmpRT->Release();
+    //bmpRT->Release();
     d3dDevice->Release();
     dxgiDevice->Release();
     tex->Release();
