@@ -36,8 +36,8 @@ ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT heig
     return pD2DBitmap;
 }
 
-// Initialize Direct2D
-DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
+// Initialize Direct2D with CreateWindow
+DLL_EXPORT void Direct2D_Init(UINT width, UINT height)
 {
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
 
@@ -51,23 +51,55 @@ DLL_EXPORT void Direct2D_Init(HWND _hwnd, UINT width, UINT height)
     }
 
     // Create a window
-    hWnd = _hwnd;//CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
-    //CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
+    hWnd = CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
 
-// Create a render target
+    // Show the window
+    ShowWindow(hWnd, 1);
+    UpdateWindow(hWnd);
+    
+    // Create a render target
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
     pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
-DLL_EXPORT void Direct2D_Clear()
+// Initialize Direct2D with external hWnd
+DLL_EXPORT void Direct2D_InitEx(HWND hwnd, UINT width, UINT height)
 {
-    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::White));
+    D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
+
+    // Create WIC factory
+    HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+        IID_IWICImagingFactory, reinterpret_cast<void**>(&g_pWICFactory));
+    if (FAILED(hr))
+    {
+        // Handle error
+        return;
+    }
+
+    // Assign global variable
+    hWnd = hwnd;
+
+    // Create a render target
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED));
+    pD2DFactory->CreateHwndRenderTarget(props, D2D1::HwndRenderTargetProperties(hWnd, D2D1::SizeU(width, height)), &pRenderTarget);
 }
 
-DLL_EXPORT void Direct2D_Paint()
+
+DLL_EXPORT void Direct2D_Clear()
+{
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+}
+
+DLL_EXPORT void Direct2D_Begin()
 {
     pRenderTarget->BeginDraw();
+}
+
+DLL_EXPORT void Direct2D_End()
+{
     pRenderTarget->EndDraw();
 }
 
