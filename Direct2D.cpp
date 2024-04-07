@@ -39,6 +39,9 @@ ID2D1Bitmap* CreateD2DBitmapFromARGBArray(BYTE* argbBytes, UINT width, UINT heig
 // Initialize Direct2D with CreateWindow
 DLL_EXPORT void Direct2D_Init(UINT width, UINT height)
 {
+    _WIDTH = width;
+    _HEIGHT = height; 
+     
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
 
     // Create WIC factory
@@ -52,7 +55,7 @@ DLL_EXPORT void Direct2D_Init(UINT width, UINT height)
 
     // Create a window
     hWnd = CreateWindow(L"WindowClass", L"Direct2D Example", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, nullptr, nullptr);
+        CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, nullptr, nullptr);
 
     // Show the window
     ShowWindow(hWnd, 1);
@@ -67,6 +70,8 @@ DLL_EXPORT void Direct2D_Init(UINT width, UINT height)
 // Initialize Direct2D with external hWnd
 DLL_EXPORT void Direct2D_InitEx(HWND hwnd, UINT width, UINT height)
 {
+    _WIDTH = width;
+    _HEIGHT = height;
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
 
     // Create WIC factory
@@ -90,7 +95,7 @@ DLL_EXPORT void Direct2D_InitEx(HWND hwnd, UINT width, UINT height)
 
 DLL_EXPORT void Direct2D_Clear()
 {
-    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::CornflowerBlue));
+    pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 }
 
 DLL_EXPORT void Direct2D_Begin()
@@ -110,8 +115,12 @@ DLL_EXPORT void Direct2D_Draw(BYTE* argbBytes, UINT x, UINT y, UINT width, UINT 
     ID2D1Bitmap* pBitmap = CreateD2DBitmapFromARGBArray(argbBytes, width, height);
     if (pBitmap)
     {
+        if (x < 0 || y < 0 || x >= _WIDTH || y >= _HEIGHT)
+        {
+            return;
+        }
         // Draw the bitmap using pRenderTarget
-        pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(x, y, width, height));
+        pRenderTarget->DrawBitmap(pBitmap, D2D1::RectF(x, y, x + width, y + height));
         pBitmap->Release();
     }
 }
