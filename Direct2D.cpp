@@ -149,3 +149,59 @@ DLL_EXPORT void Direct2D_Dispose()
     g_pWICFactory->Release();
     DestroyWindow(hWnd);
 }
+
+DLL_EXPORT LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        SetPixel(hdc, 50, 50, RGB(255, 0, 0)); // Draw a red pixel at (50, 50)
+        EndPaint(hwnd, &ps);
+    } break;
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+
+    default:
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
+}
+
+DLL_EXPORT int CreateWnd(HINSTANCE hInstance, HINSTANCE hPrevInstance,  int nShowCmd) {
+    const char CLASS_NAME[] = "Sample Window Class";
+
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    //wc.lpszClassName = CLASS_NAME;
+
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindowEx(
+        0,
+        nullptr,//CLASS_NAME,
+        nullptr,//"Learn to Program Windows",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+        nullptr,
+        nullptr,
+        hInstance,
+        nullptr
+    );
+
+    if (hwnd == nullptr) {
+        return 0;
+    }
+
+    ShowWindow(hwnd, nShowCmd);
+
+    MSG msg = {};
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return 0;
+}
